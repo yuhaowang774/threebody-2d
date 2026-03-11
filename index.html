@@ -491,7 +491,7 @@
       }
       .scale-bar-container {
         position: fixed;
-        bottom: clamp(1rem, 3vh, 2rem);
+        bottom: clamp(3rem, 7vh, 5rem);
         left: 50%;
         transform: translateX(-50%);
         z-index: 100;
@@ -729,28 +729,9 @@
         <div class="input-group">
           <label>引力常数:</label>
           <input type="number" id="gravity" value="1" step="1" />
+          <button class="feature-btn active" id="btnMinDist">引力软化</button>
         </div>
-        <!-- 时间步长 -->
-        <div class="input-group">
-          <label>时间步长:</label>
-          <input
-            type="number"
-            id="timestep"
-            value="0.001"
-            step="0.001"
-            min="0.001"
-            max="0.1"
-          />
-          <input
-            type="range"
-            id="timestepRange"
-            value="0.001"
-            step="0.001"
-            min="0.001"
-            max="0.1"
-          />
-          <span id="timestepVal">0.001</span>
-        </div>
+        <div class="divider"></div>
         <!-- 运行速度 -->
         <div class="input-group">
           <label>运行速度:</label>
@@ -771,16 +752,6 @@
             max="50"
           />
           <span id="speedVal">1x</span>
-        </div>
-        <!-- 运行时间 -->
-        <div class="input-group">
-          <label>运行时间:</label>
-          <span id="timeDisplay">0.00s</span>
-        </div>
-        <!-- 性能显示 -->
-        <div class="input-group">
-          <label>性能:</label>
-          <span id="perfDisplay">FPS: 0 | 步/帧: 0</span>
         </div>
         <div class="divider"></div>
         <!-- 轨迹长度 -->
@@ -807,62 +778,8 @@
         <div class="feature-buttons">
           <button class="feature-btn active" id="btnTrail">显示轨迹</button>
           <button class="feature-btn" id="btnCom">物理真实</button>
-          <button class="feature-btn active" id="btnMinDist">引力软化</button>
           <button class="feature-btn" id="btnCollision">碰撞检测</button>
-        </div>
-        <div class="divider"></div>
-        <div class="body-controls">
-          <h4>自动缩放镜头</h4>
-          <div class="feature-buttons">
-            <button class="feature-btn active" id="btnAutoZoom">
-              启用自动缩放
-            </button>
-          </div>
-          <div class="input-group">
-            <label>缩放灵敏度:</label>
-            <input
-              type="number"
-              id="autoZoomSensitivity"
-              value="0.01"
-              step="0.01"
-              min="0.01"
-              max="0.5"
-            />
-            <input
-              type="range"
-              id="autoZoomSensitivityRange"
-              value="0.01"
-              step="0.01"
-              min="0.01"
-              max="0.5"
-            />
-            <span id="autoZoomSensitivityVal">0.01</span>
-          </div>
-          <div class="input-group">
-            <label>边距系数:</label>
-            <input
-              type="number"
-              id="autoZoomPadding"
-              value="2"
-              step="0.1"
-              min="1.1"
-              max="3.0"
-            />
-            <input
-              type="range"
-              id="autoZoomPaddingRange"
-              value="2"
-              step="0.1"
-              min="1.1"
-              max="3.0"
-            />
-            <span id="autoZoomPaddingVal">2.0</span>
-          </div>
-          <div class="input-group">
-            <label>当前缩放:</label>
-            <span id="currentZoomLevel">1.00</span>
-          </div>
-          <button class="reset-panel-btn" id="resetAutoZoom">重置参数</button>
+          <button class="feature-btn active" id="btnAutoZoom">自动缩放</button>
         </div>
         <div class="divider"></div>
         <div class="body-controls">
@@ -893,7 +810,6 @@
               min="400"
               max="4000"
             />
-            <span id="cageBoundaryVal">1600</span>
           </div>
           <div class="input-group">
             <label>预警半径:</label>
@@ -913,95 +829,6 @@
               min="200"
               max="3000"
             />
-            <span id="cageWarningVal">700</span>
-          </div>
-          <div class="input-group">
-            <label>场强度:</label>
-            <input
-              type="number"
-              id="cageStrength"
-              value="1"
-              step="0.1"
-              min="0.1"
-              max="10"
-            />
-            <input
-              type="range"
-              id="cageStrengthRange"
-              value="1"
-              step="0.1"
-              min="0.1"
-              max="10"
-            />
-            <span id="cageStrengthVal">1.0</span>
-          </div>
-          <div class="input-group">
-            <label>非线性指数:</label>
-            <input
-              type="number"
-              id="cageExponent"
-              value="4"
-              step="1"
-              min="2"
-              max="10"
-            />
-            <input
-              type="range"
-              id="cageExponentRange"
-              value="4"
-              step="1"
-              min="2"
-              max="10"
-            />
-            <span id="cageExponentVal">4</span>
-          </div>
-          <div class="input-group">
-            <label>最大倍率:</label>
-            <input
-              type="number"
-              id="cageMaxMult"
-              value="100"
-              step="10"
-              min="10"
-              max="500"
-            />
-            <input
-              type="range"
-              id="cageMaxMultRange"
-              value="100"
-              step="10"
-              min="10"
-              max="500"
-            />
-            <span id="cageMaxMultVal">100</span>
-          </div>
-          <div class="input-group">
-            <label>阻尼系数:</label>
-            <input
-              type="number"
-              id="cageDamping"
-              value="0.1"
-              step="0.01"
-              min="0"
-              max="1"
-            />
-            <input
-              type="range"
-              id="cageDampingRange"
-              value="0.1"
-              step="0.01"
-              min="0"
-              max="1"
-            />
-            <span id="cageDampingVal">0.10</span>
-          </div>
-          <div class="input-group">
-            <label>牢笼势能:</label>
-            <span id="cageEnergy">0.0000</span>
-          </div>
-          <div class="input-group">
-            <label>最近天体:</label>
-            <span id="nearestBodyStatus">安全</span>
           </div>
           <button class="reset-panel-btn" id="resetGravityCage">
             重置参数
@@ -1010,62 +837,7 @@
         <div class="divider"></div>
       </div>
     </div>
-    <!-- 信息面板 -->
-    <div class="panel-container left" id="infoPanelContainer">
-      <button class="toggle-btn" id="toggleInfoPanel">ℹ</button>
-      <div class="panel-base info-panel" id="infoPanel">
-        <!-- 系统能量显示 -->
-        <div class="body-controls">
-          <h4>系统能量</h4>
-          <div class="input-group">
-            <label>动能:</label>
-            <span id="kineticEnergy">-</span>
-          </div>
-          <div class="input-group">
-            <label>势能:</label>
-            <span id="potentialEnergy">-</span>
-          </div>
-          <div class="input-group">
-            <label>总能量:</label>
-            <span id="totalEnergy">-</span>
-          </div>
-          <div class="input-group">
-            <label>角动量:</label>
-            <span id="angularMomentum">-</span>
-          </div>
-        </div>
-        <div class="divider"></div>
-        <div class="body-controls">
-          <h4>引力牢笼参数说明</h4>
-          <div class="info-text">
-            <p>
-              <strong>边界半径</strong
-              >：牢笼的硬边界距离。天体到达此边界时将受到极强的排斥力，阻止其逃逸出模拟区域。
-            </p>
-            <p>
-              <strong>预警半径</strong
-              >：软边界距离。天体越过此半径后，牢笼开始逐渐施加限制力，距离边界越近力越强。
-            </p>
-            <p>
-              <strong>场强度</strong
-              >：限制力的基础强度系数。仅在预警半径与边界半径之间的区域生效，值越大约束力越强。
-            </p>
-            <p>
-              <strong>非线性指数</strong
-              >：控制力随距离增长的陡峭程度。指数越大，力在边界附近增长越急剧，边界效果越"硬"。
-            </p>
-            <p>
-              <strong>最大倍率</strong
-              >：限制力的最大放大倍数。防止天体过于接近边界时产生无限大的力，确保数值稳定性。
-            </p>
-            <p>
-              <strong>阻尼系数</strong
-              >：速度衰减因子。当天体进入预警区后，对其施加与速度方向相反的阻力，帮助稳定系统并减少振荡。值为0表示无阻尼，值越大阻尼效果越强。
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
+
     <script>
       const YOSHIDA = (() => {
         const w1 = 1 / (2 - Math.pow(2, 1 / 3));
@@ -1692,20 +1464,9 @@
             totalTime: 0,
             trailLength: 1000,
             trails: bodies.map(() => new CircularTrail(1000)),
-            lastFrameTime: performance.now(),
-            frameCount: 0,
-            stepsPerFrame: 0,
-            frameRenderTime: 0,
             lastTime: 0,
             domUpdateCounter: 0,
             domElements: {
-              timeDisplay: null,
-              kineticEnergy: null,
-              potentialEnergy: null,
-              totalEnergy: null,
-              angularMomentum: null,
-              cageEnergy: null,
-              nearestBodyStatus: null,
               collisionInfo: null,
               collisionType: null,
               mergedMass: null,
@@ -1751,12 +1512,6 @@
         initDomElements() {
           const ids = [
             "timeDisplay",
-            "kineticEnergy",
-            "potentialEnergy",
-            "totalEnergy",
-            "angularMomentum",
-            "cageEnergy",
-            "nearestBodyStatus",
             "collisionInfo",
             "collisionType",
             "mergedMass",
@@ -2321,80 +2076,23 @@
 
         updateTimeDisplay() {
           const el = this.domElements.timeDisplay;
-          if (el) el.textContent = this.totalTime.toFixed(2) + "s";
+          if (!el) return;
+          let t = this.totalTime;
+          if (t < 60) {
+            el.textContent = t.toFixed(2) + "秒";
+          } else if (t < 3600) {
+            const m = Math.floor(t / 60);
+            const s = (t % 60).toFixed(1);
+            el.textContent = m + "分" + s + "秒";
+          } else {
+            const h = Math.floor(t / 3600);
+            const m = Math.floor((t % 3600) / 60);
+            const s = ((t % 3600) % 60).toFixed(0);
+            el.textContent = h + "时" + m + "分" + s + "秒";
+          }
         }
 
         updateEnergyDisplay() {
-          const com = this.computeCenterOfMass();
-          const energy = calcSystemEnergy(
-            this.bodies,
-            this.G,
-            this.displayScale,
-          );
-          const L = calcSystemAngularMomentum(this.bodies, com.x, com.y);
-          const {
-            kineticEnergy,
-            potentialEnergy,
-            totalEnergy,
-            angularMomentum,
-          } = this.domElements;
-          if (kineticEnergy)
-            kineticEnergy.textContent = energy.kinetic.toFixed(4);
-          if (potentialEnergy)
-            potentialEnergy.textContent = energy.potential.toFixed(4);
-          if (totalEnergy) totalEnergy.textContent = energy.total.toFixed(4);
-          if (angularMomentum) angularMomentum.textContent = L.toFixed(4);
-          if (this.gravityCage.enabled) {
-            const cageEnergy = this.gravityCage.computeTotalCageEnergy(
-              this.bodies,
-              this.displayScale,
-            );
-            if (this.domElements.cageEnergy)
-              this.domElements.cageEnergy.textContent = cageEnergy.toFixed(4);
-            let maxRNorm = 0;
-            let nearestStatus = "safe";
-            for (const body of this.bodies) {
-              const status = this.gravityCage.getBoundaryStatus(
-                body,
-                this.displayScale,
-              );
-              const dist = this.gravityCage.computeDistance(
-                body,
-                this.displayScale,
-              );
-              const boundaryR =
-                this.gravityCage.boundaryRadius / this.displayScale;
-              const rNorm = dist / boundaryR;
-              if (rNorm > maxRNorm) {
-                maxRNorm = rNorm;
-                nearestStatus = status;
-              }
-            }
-            const statusEl = this.domElements.nearestBodyStatus;
-            if (statusEl) {
-              const statusText = {
-                safe: "安全",
-                warning: "警告",
-                danger: "危险",
-                critical: "临界",
-              };
-              statusEl.textContent = statusText[nearestStatus] || "安全";
-              const statusColor = {
-                safe: "#4caf50",
-                warning: "#ffc107",
-                danger: "#ff9800",
-                critical: "#f44336",
-              };
-              statusEl.style.color = statusColor[nearestStatus] || "#4caf50";
-            }
-          } else {
-            if (this.domElements.cageEnergy)
-              this.domElements.cageEnergy.textContent = "0.0000";
-            if (this.domElements.nearestBodyStatus) {
-              this.domElements.nearestBodyStatus.textContent = "未启用";
-              this.domElements.nearestBodyStatus.style.color = "#888";
-            }
-          }
           if (this.lastCollisionInfo) {
             const {
               collisionInfo,
@@ -2424,24 +2122,12 @@
         run() {
           const sim = this;
           function frame() {
-            const startFrame = performance.now();
             for (let i = 0; i < sim.speedMultiplier; i++) {
               sim.step();
             }
             sim.centerOnCom();
             sim.updateAutoZoom();
             sim.draw();
-            sim.frameRenderTime = performance.now() - startFrame;
-            sim.frameCount++;
-            const elapsed = startFrame - sim.lastFrameTime;
-            if (elapsed >= 500) {
-              const fps = Math.round((sim.frameCount * 1000) / elapsed);
-              const el = document.getElementById("perfDisplay");
-              if (el)
-                el.textContent = `FPS: ${fps} | 步/帧: ${sim.speedMultiplier} | 渲染: ${sim.frameRenderTime.toFixed(1)}ms`;
-              sim.frameCount = 0;
-              sim.lastFrameTime = startFrame;
-            }
             sim.timer = requestAnimationFrame(frame);
           }
           frame();
@@ -2454,9 +2140,6 @@
           this.trails = newBodies.map(
             () => new CircularTrail(this.trailLength),
           );
-          this.lastFrameTime = performance.now();
-          this.frameCount = 0;
-          this.stepsPerFrame = 0;
           this.scale = 1;
           this.initState = structuredClone(newBodies);
           const com = this.computeCenterOfMass();
@@ -2699,65 +2382,6 @@
         toggleBtn.textContent = panelExpanded ? "✕" : "⚙";
       });
 
-      // 信息面板展开/收起
-      const toggleInfoBtn = document.getElementById("toggleInfoPanel");
-      const infoPanel = document.getElementById("infoPanel");
-      const infoPanelContainer = document.getElementById("infoPanelContainer");
-      let infoPanelExpanded = false;
-
-      // 信息面板拖拽移动功能
-      let isInfoDragging = false;
-      let hasInfoMoved = false;
-      let infoDragStartX,
-        infoDragStartY,
-        infoContainerStartX,
-        infoContainerStartY;
-
-      infoPanelContainer.addEventListener("mousedown", (e) => {
-        if (e.target.tagName === "INPUT") return;
-        isInfoDragging = true;
-        hasInfoMoved = false;
-        infoDragStartX = e.clientX;
-        infoDragStartY = e.clientY;
-        const rect = infoPanelContainer.getBoundingClientRect();
-        infoContainerStartX = rect.left;
-        infoContainerStartY = rect.top;
-        infoPanelContainer.style.cursor = "grabbing";
-      });
-
-      document.addEventListener("mousemove", (e) => {
-        if (!isInfoDragging) return;
-        const deltaX = e.clientX - infoDragStartX;
-        const deltaY = e.clientY - infoDragStartY;
-        if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
-          hasInfoMoved = true;
-        }
-        const newX = infoContainerStartX + deltaX;
-        const newY = infoContainerStartY + deltaY;
-        infoPanelContainer.style.left = newX + "px";
-        infoPanelContainer.style.top = newY + "px";
-        infoPanelContainer.style.transform = "none";
-      });
-
-      document.addEventListener("mouseup", () => {
-        if (isInfoDragging) {
-          isInfoDragging = false;
-          infoPanelContainer.style.cursor = "move";
-        }
-      });
-
-      toggleInfoBtn.addEventListener("click", (e) => {
-        if (hasInfoMoved) {
-          hasInfoMoved = false;
-          return;
-        }
-        e.stopPropagation();
-        infoPanelExpanded = !infoPanelExpanded;
-        infoPanel.classList.toggle("show", infoPanelExpanded);
-        toggleInfoBtn.classList.toggle("info-expanded", infoPanelExpanded);
-        toggleInfoBtn.textContent = infoPanelExpanded ? "✕" : "ℹ";
-      });
-
       // 控制按钮
       document.getElementById("start").onclick = () => sim.start();
       document.getElementById("stop").onclick = () => sim.stop();
@@ -2767,9 +2391,6 @@
         sim.bodies = newBodies;
         sim.totalTime = 0;
         sim.trails = newBodies.map(() => new CircularTrail(sim.trailLength));
-        sim.lastFrameTime = performance.now();
-        sim.frameCount = 0;
-        sim.stepsPerFrame = 0;
         sim.scale = 1;
         sim.centerOnCom();
         updateControlPanel(newBodies);
@@ -2794,17 +2415,6 @@
         sim.start();
       };
 
-      // 参数控制
-      document.getElementById("timestep").oninput = (e) => {
-        document.getElementById("timestepVal").textContent = e.target.value;
-        document.getElementById("timestepRange").value = e.target.value;
-        sim.dt = +e.target.value;
-      };
-      document.getElementById("timestepRange").oninput = (e) => {
-        document.getElementById("timestepVal").textContent = e.target.value;
-        document.getElementById("timestep").value = e.target.value;
-        sim.dt = +e.target.value;
-      };
       document.getElementById("speedRange").oninput = (e) => {
         document.getElementById("speedVal").textContent = e.target.value + "x";
         document.getElementById("speedInput").value = e.target.value;
@@ -2933,18 +2543,15 @@
       const syncCageParam = (
         id,
         rangeId,
-        valId,
         prop,
         parser = parseFloat,
         showBoundary = false,
       ) => {
         const input = document.getElementById(id);
         const range = document.getElementById(rangeId);
-        const valSpan = document.getElementById(valId);
         const update = (v) => {
           const val = parser(v);
           sim.gravityCage[prop] = val;
-          if (valSpan) valSpan.textContent = val;
           if (input) input.value = val;
           if (range) range.value = val;
           if (showBoundary) {
@@ -2959,7 +2566,6 @@
       syncCageParam(
         "cageBoundary",
         "cageBoundaryRange",
-        "cageBoundaryVal",
         "boundaryRadius",
         parseInt,
         true,
@@ -2967,117 +2573,14 @@
       syncCageParam(
         "cageWarning",
         "cageWarningRange",
-        "cageWarningVal",
         "warningRadius",
         parseInt,
-        true,
-      );
-      syncCageParam(
-        "cageStrength",
-        "cageStrengthRange",
-        "cageStrengthVal",
-        "strength",
-        parseFloat,
-        true,
-      );
-      syncCageParam(
-        "cageExponent",
-        "cageExponentRange",
-        "cageExponentVal",
-        "exponent",
-        parseInt,
-        true,
-      );
-      syncCageParam(
-        "cageMaxMult",
-        "cageMaxMultRange",
-        "cageMaxMultVal",
-        "maxMultiplier",
-        parseInt,
-        true,
-      );
-      syncCageParam(
-        "cageDamping",
-        "cageDampingRange",
-        "cageDampingVal",
-        "dampingFactor",
-        parseFloat,
         true,
       );
 
       document.getElementById("btnAutoZoom").onclick = (e) => {
         sim.autoZoom.enabled = !sim.autoZoom.enabled;
         e.target.classList.toggle("active", sim.autoZoom.enabled);
-        if (!sim.timer) sim.draw();
-      };
-
-      const syncAutoZoomParam = (
-        id,
-        rangeId,
-        valId,
-        prop,
-        parser = parseFloat,
-        formatter = (v) => v,
-      ) => {
-        const input = document.getElementById(id);
-        const range = document.getElementById(rangeId);
-        const valSpan = document.getElementById(valId);
-        const update = (v) => {
-          const val = parser(v);
-          sim.autoZoom[prop] = val;
-          if (valSpan) valSpan.textContent = formatter(val);
-          if (input) input.value = val;
-          if (range) range.value = val;
-          if (!sim.timer) sim.draw();
-        };
-        if (input) input.oninput = (e) => update(e.target.value);
-        if (range) range.oninput = (e) => update(e.target.value);
-      };
-
-      syncAutoZoomParam(
-        "autoZoomSensitivity",
-        "autoZoomSensitivityRange",
-        "autoZoomSensitivityVal",
-        "sensitivity",
-        parseFloat,
-        (v) => v.toFixed(2),
-      );
-      syncAutoZoomParam(
-        "autoZoomPadding",
-        "autoZoomPaddingRange",
-        "autoZoomPaddingVal",
-        "padding",
-        parseFloat,
-        (v) => v.toFixed(1),
-      );
-
-      document.getElementById("resetAutoZoom").onclick = (e) => {
-        const btn = e.target;
-        btn.style.background =
-          "linear-gradient(135deg, #2a5a2a 0%, #1a4a1a 100%)";
-        btn.style.borderColor = "#4caf50";
-        btn.style.color = "#fff";
-        setTimeout(() => {
-          btn.style.background = "";
-          btn.style.borderColor = "";
-          btn.style.color = "";
-        }, 200);
-        document.getElementById("btnAutoZoom").classList.add("active");
-        sim.autoZoom.enabled = true;
-        const defaultSensitivity = 0.01;
-        const defaultPadding = 2.0;
-        sim.autoZoom.sensitivity = defaultSensitivity;
-        sim.autoZoom.padding = defaultPadding;
-        document.getElementById("autoZoomSensitivity").value =
-          defaultSensitivity;
-        document.getElementById("autoZoomSensitivityRange").value =
-          defaultSensitivity;
-        document.getElementById("autoZoomSensitivityVal").textContent =
-          defaultSensitivity.toFixed(2);
-        document.getElementById("autoZoomPadding").value = defaultPadding;
-        document.getElementById("autoZoomPaddingRange").value = defaultPadding;
-        document.getElementById("autoZoomPaddingVal").textContent =
-          defaultPadding.toFixed(1);
         if (!sim.timer) sim.draw();
       };
 
@@ -3100,45 +2603,15 @@
         const defaults = {
           boundaryRadius: 1600,
           warningRadius: 700,
-          strength: 1.0,
-          exponent: 4,
-          maxMultiplier: 100,
-          dampingFactor: 0.1,
         };
         sim.gravityCage.boundaryRadius = defaults.boundaryRadius;
         sim.gravityCage.warningRadius = defaults.warningRadius;
-        sim.gravityCage.strength = defaults.strength;
-        sim.gravityCage.exponent = defaults.exponent;
-        sim.gravityCage.maxMultiplier = defaults.maxMultiplier;
-        sim.gravityCage.dampingFactor = defaults.dampingFactor;
         document.getElementById("cageBoundary").value = defaults.boundaryRadius;
         document.getElementById("cageBoundaryRange").value =
-          defaults.boundaryRadius;
-        document.getElementById("cageBoundaryVal").textContent =
           defaults.boundaryRadius;
         document.getElementById("cageWarning").value = defaults.warningRadius;
         document.getElementById("cageWarningRange").value =
           defaults.warningRadius;
-        document.getElementById("cageWarningVal").textContent =
-          defaults.warningRadius;
-        document.getElementById("cageStrength").value = defaults.strength;
-        document.getElementById("cageStrengthRange").value = defaults.strength;
-        document.getElementById("cageStrengthVal").textContent =
-          defaults.strength.toFixed(1);
-        document.getElementById("cageExponent").value = defaults.exponent;
-        document.getElementById("cageExponentRange").value = defaults.exponent;
-        document.getElementById("cageExponentVal").textContent =
-          defaults.exponent;
-        document.getElementById("cageMaxMult").value = defaults.maxMultiplier;
-        document.getElementById("cageMaxMultRange").value =
-          defaults.maxMultiplier;
-        document.getElementById("cageMaxMultVal").textContent =
-          defaults.maxMultiplier;
-        document.getElementById("cageDamping").value = defaults.dampingFactor;
-        document.getElementById("cageDampingRange").value =
-          defaults.dampingFactor;
-        document.getElementById("cageDampingVal").textContent =
-          defaults.dampingFactor.toFixed(2);
         sim.gravityCage.setUserShowBoundaries(false);
         if (!sim.timer) sim.draw();
       };
@@ -3183,8 +2656,6 @@
       ScaleBar.init();
 
       setInterval(() => {
-        const zoomEl = document.getElementById("currentZoomLevel");
-        if (zoomEl) zoomEl.textContent = sim.scale.toFixed(2);
         ScaleBar.update(sim.scale);
       }, 100);
 
