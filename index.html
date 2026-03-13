@@ -2,8 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <title>Yoshida 辛积分三体 - PixiJS版</title>
-    <script src="https://cdn.bootcdn.net/ajax/libs/pixi.js/7.4.0/pixi.min.js"></script>
+    <title>Yoshida 辛积分三体</title>
     <style>
       :root {
         --font-size-base: clamp(12px, 1vw + 0.5rem, 18px);
@@ -659,6 +658,10 @@
   </head>
   <body>
     <canvas id="canvas"></canvas>
+    <canvas
+      id="trailCanvas"
+      style="position: fixed; top: 0; left: 0; pointer-events: none; z-index: 1"
+    ></canvas>
     <div class="scale-bar-container" id="scaleBarContainer">
       <div class="scale-bar">
         <div class="scale-bar-ruler">
@@ -667,6 +670,7 @@
         <div class="scale-zoom" id="scaleZoomIndicator">1.00x</div>
       </div>
     </div>
+    <!-- 悬浮球控制面板 -->
     <div class="panel-container right" id="panelContainer">
       <button class="toggle-btn" id="togglePanel">⚙</button>
       <div class="panel-base control-panel" id="controlPanel">
@@ -721,12 +725,14 @@
           </div>
         </div>
         <div class="divider"></div>
+        <!-- 引力常数 -->
         <div class="input-group">
           <label>引力常数:</label>
           <input type="number" id="gravity" value="1" step="1" />
           <button class="feature-btn active" id="btnMinDist">引力软化</button>
         </div>
         <div class="divider"></div>
+        <!-- 运行速度 -->
         <div class="input-group">
           <label>运行速度:</label>
           <input
@@ -748,6 +754,7 @@
           <span id="speedVal">1x</span>
         </div>
         <div class="divider"></div>
+        <!-- 轨迹长度 -->
         <div class="input-group">
           <label>轨迹长度:</label>
           <input
@@ -1027,14 +1034,59 @@
         return { kinetic, potential, total: kinetic + potential };
       }
 
+      const starTextures = [new Image(), new Image(), new Image()];
       const starColors = ["#ffcc00", "#ff3333", "#aaccff"];
-      const starTextureUrls = [
-        "medres/ostar.JPG",
-        "medres/mstar.JPG",
-        "medres/kstar.JPG",
-      ];
+      starTextures[0].src = "medres/ostar.JPG";
+      starTextures[1].src = "medres/mstar.JPG";
+      starTextures[2].src = "medres/kstar.JPG";
 
-      const collisionTextureUrls = [
+      const glowTextureCache = new Map();
+      function createGlowTexture(color, baseRadius) {
+        const key = `${color}_${baseRadius}`;
+        if (glowTextureCache.has(key)) return glowTextureCache.get(key);
+        const size = Math.ceil(baseRadius * 6);
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        const cx = size / 2;
+        const r = baseRadius;
+        const glowRadius = r * 3;
+        const coronaGrad = ctx.createRadialGradient(
+          cx,
+          cx,
+          r,
+          cx,
+          cx,
+          glowRadius,
+        );
+        coronaGrad.addColorStop(0, color + "66");
+        coronaGrad.addColorStop(0.5, color + "22");
+        coronaGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(cx, cx, glowRadius, 0, Math.PI * 2);
+        ctx.fillStyle = coronaGrad;
+        ctx.fill();
+        const atmosphereGrad = ctx.createRadialGradient(
+          cx,
+          cx,
+          r * 0.5,
+          cx,
+          cx,
+          r * 1.5,
+        );
+        atmosphereGrad.addColorStop(0, color + "aa");
+        atmosphereGrad.addColorStop(0.5, color + "44");
+        atmosphereGrad.addColorStop(1, "transparent");
+        ctx.beginPath();
+        ctx.arc(cx, cx, r * 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = atmosphereGrad;
+        ctx.fill();
+        glowTextureCache.set(key, canvas);
+        return canvas;
+      }
+
+      const collisionTextures = [
         "medres/fstar.JPG",
         "medres/gstar.JPG",
         "medres/kstar.JPG",
@@ -1043,22 +1095,61 @@
         "medres/astar.jpg",
         "medres/bstar.JPG",
       ];
+      const collisionTextureCache = {};
 
-      function hexToNumber(hex) {
-        return parseInt(hex.replace("#", "0x"));
+      function getCollisionTexture(index) {
+        if (!collisionTextureCache[index]) {
+          const img = new Image();
+          img.src = collisionTextures[index];
+          collisionTextureCache[index] = img;
+        }
+        return collisionTextureCache[index];
       }
 
-      function hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result
-          ? {
-              r: parseInt(result[1], 16),
-              g: parseInt(result[2], 16),
-              b: parseInt(result[3], 16),
+      function extractDominantColor(img) {
+        try {
+          const canvas = document.createElement("canvas");
+          const ctx = canvas.getContext("2d");
+          canvas.width = 32;
+          canvas.height = 32;
+          ctx.drawImage(img, 0, 0, 32, 32);
+          const data = ctx.getImageData(0, 0, 32, 32).data;
+          let r = 0,
+            g = 0,
+            b = 0,
+            count = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            const a = data[i + 3];
+            if (a > 128) {
+              r += data[i];
+              g += data[i + 1];
+              b += data[i + 2];
+              count++;
             }
-          : { r: 255, g: 255, b: 255 };
+          }
+          if (count === 0) return null;
+          r = Math.round(r / count);
+          g = Math.round(g / count);
+          b = Math.round(b / count);
+          return (
+            "#" + [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")
+          );
+        } catch (e) {
+          return null;
+        }
       }
 
+      starTextures.forEach((img, i) => {
+        img.onload = () => {
+          const color = extractDominantColor(img);
+          if (color) starColors[i] = color;
+        };
+      });
+
+      const bgImage = new Image();
+      bgImage.src = "medres/eso0932a (1)-1.JPG";
+
+      /* 创建天体对象 */
       const createBody = (x, y, dx, dy, m, textureIndex) => ({
         x,
         y,
@@ -1121,225 +1212,169 @@
         }
       }
 
-      class PixiStarRenderer {
-        constructor(app) {
-          this.app = app;
-          this.glowCache = new Map();
-          this.starTextures = [];
-          this.loadedColors = [...starColors];
-        }
-
-        async loadTextures() {
-          const loader = PIXI.Assets;
-          for (let i = 0; i < starTextureUrls.length; i++) {
-            try {
-              const texture = await loader.load(starTextureUrls[i]);
-              this.starTextures[i] = texture;
-              this.extractDominantColor(texture, i);
-            } catch (e) {
-              console.warn(`Failed to load texture: ${starTextureUrls[i]}`);
-            }
-          }
-        }
-
-        extractDominantColor(texture, index) {
-          const sprite = new PIXI.Sprite(texture);
-          const renderTexture = PIXI.RenderTexture.create({
-            width: 32,
-            height: 32,
+      class WebGLTrailRenderer {
+        constructor(canvas) {
+          this.canvas = canvas;
+          this.gl = canvas.getContext("webgl", {
+            alpha: true,
+            premultipliedAlpha: false,
           });
-          this.app.renderer.render(sprite, { renderTexture });
-          const pixels = this.app.renderer.extract.pixels(renderTexture);
-          let r = 0,
-            g = 0,
-            b = 0,
-            count = 0;
-          for (let i = 0; i < pixels.length; i += 4) {
-            const a = pixels[i + 3];
-            if (a > 128) {
-              r += pixels[i];
-              g += pixels[i + 1];
-              b += pixels[i + 2];
-              count++;
+          if (!this.gl) {
+            console.warn("WebGL not supported, falling back to 2D");
+            this.enabled = false;
+            return;
+          }
+          this.enabled = true;
+          this.initShaders();
+          this.initBuffers();
+          this.resize();
+        }
+        initShaders() {
+          const gl = this.gl;
+          const vsSource = `
+            attribute vec2 a_position;
+            attribute float a_alpha;
+            uniform vec2 u_resolution;
+            uniform vec2 u_offset;
+            uniform float u_scale;
+            varying float v_alpha;
+            void main() {
+              vec2 screenPos = a_position * u_scale + u_offset;
+              vec2 clipSpace = (screenPos / u_resolution) * 2.0 - 1.0;
+              gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+              v_alpha = a_alpha;
             }
-          }
-          if (count > 0) {
-            r = Math.round(r / count);
-            g = Math.round(g / count);
-            b = Math.round(b / count);
-            this.loadedColors[index] =
-              "#" +
-              [r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("");
-          }
-          renderTexture.destroy(true);
-          sprite.destroy();
-        }
-
-        createGlowTexture(color, baseRadius) {
-          const key = `${color}_${baseRadius}`;
-          if (this.glowCache.has(key)) return this.glowCache.get(key);
-
-          const size = Math.ceil(baseRadius * 6);
-          const graphics = new PIXI.Graphics();
-          const cx = size / 2;
-          const r = baseRadius;
-          const rgb = hexToRgb(color);
-
-          graphics.beginFill((rgb.r << 16) | (rgb.g << 8) | rgb.b, 0.4);
-          graphics.drawCircle(cx, cx, r * 3);
-          graphics.endFill();
-
-          graphics.beginFill((rgb.r << 16) | (rgb.g << 8) | rgb.b, 0.67);
-          graphics.drawCircle(cx, cx, r * 1.5);
-          graphics.endFill();
-
-          const renderTexture = PIXI.RenderTexture.create({
-            width: size,
-            height: size,
-          });
-          this.app.renderer.render(graphics, { renderTexture });
-          graphics.destroy();
-
-          this.glowCache.set(key, renderTexture);
-          return renderTexture;
-        }
-
-        createStarSprite(body, time) {
-          const container = new PIXI.Container();
-          const r = body.r;
-          const colorIndex = body.textureIndex >= 0 ? body.textureIndex : 0;
-          const color = this.loadedColors[colorIndex] || "#ffffff";
-          const rgb = hexToRgb(color);
-          const colorNum = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
-
-          const glowGraphics = new PIXI.Graphics();
-          const steps = 20;
-          const maxRadius = r * 1.2;
-          for (let i = steps; i >= 0; i--) {
-            const ratio = i / steps;
-            const alpha = 0.3 * Math.pow(1 - ratio, 2);
-            const radius = r + (maxRadius - r) * ratio;
-            glowGraphics.beginFill(colorNum, alpha);
-            glowGraphics.drawCircle(body.x, body.y, radius);
-            glowGraphics.endFill();
-          }
-          container.addChild(glowGraphics);
-
-          const coreGraphics = new PIXI.Graphics();
-
-          if (this.starTextures[colorIndex]) {
-            const coreSprite = new PIXI.Sprite(this.starTextures[colorIndex]);
-            coreSprite.width = r * 2;
-            coreSprite.height = r * 2;
-            coreSprite.anchor.set(0.5);
-            coreSprite.x = body.x;
-            coreSprite.y = body.y;
-            coreSprite.rotation = time * 0.1;
-            const mask = new PIXI.Graphics();
-            mask.beginFill(0xffffff);
-            mask.drawCircle(body.x, body.y, r);
-            mask.endFill();
-            coreSprite.mask = mask;
-            container.addChild(mask);
-            container.addChild(coreSprite);
-          } else {
-            coreGraphics.beginFill(0xffffff);
-            coreGraphics.drawCircle(
-              body.x - r * 0.2,
-              body.y - r * 0.2,
-              r * 0.3,
-            );
-            coreGraphics.endFill();
-
-            coreGraphics.beginFill((rgb.r << 16) | (rgb.g << 8) | rgb.b);
-            coreGraphics.drawCircle(body.x, body.y, r);
-            coreGraphics.endFill();
-          }
-
-          return container;
-        }
-      }
-
-      class PixiTrailRenderer {
-        constructor() {
-          this.graphics = new PIXI.Graphics();
-        }
-
-        drawTrails(trails, bodies, colors) {
-          this.graphics.clear();
-          const segments = 240;
-
-          for (let i = 0; i < trails.length; i++) {
-            const trail = trails[i];
-            if (trail.length < 2) continue;
-
-            const body = bodies[i];
-            const colorIndex = body.textureIndex >= 0 ? body.textureIndex : 0;
-            const color = colors[colorIndex] || "#ffffff";
-            const rgb = hexToRgb(color);
-            const colorNum = (rgb.r << 16) | (rgb.g << 8) | rgb.b;
-
-            const len = trail.length;
-            const segmentSize = Math.max(1, Math.ceil(len / segments));
-
-            for (let s = 0; s < segments; s++) {
-              const start = s === 0 ? 0 : s * segmentSize - 1;
-              const end = Math.min(s * segmentSize + segmentSize, len);
-              if (start >= len) break;
-
-              const progress = (s * segmentSize + segmentSize / 2) / len;
-              const alpha = Math.pow(progress, 0.7) * 0.85;
-
-              this.graphics.lineStyle(2, colorNum, alpha);
-
-              for (let j = start; j < end; j++) {
-                const idx = (trail.head + j) % trail.count;
-                if (j === start) {
-                  this.graphics.moveTo(trail.xs[idx], trail.ys[idx]);
-                } else {
-                  this.graphics.lineTo(trail.xs[idx], trail.ys[idx]);
-                }
-              }
+          `;
+          const fsSource = `
+            precision mediump float;
+            uniform vec4 u_color;
+            varying float v_alpha;
+            void main() {
+              gl_FragColor = vec4(u_color.rgb, u_color.a * v_alpha);
             }
-          }
+          `;
+          const vs = this.createShader(gl.VERTEX_SHADER, vsSource);
+          const fs = this.createShader(gl.FRAGMENT_SHADER, fsSource);
+          this.program = gl.createProgram();
+          gl.attachShader(this.program, vs);
+          gl.attachShader(this.program, fs);
+          gl.linkProgram(this.program);
+          this.positionLoc = gl.getAttribLocation(this.program, "a_position");
+          this.alphaLoc = gl.getAttribLocation(this.program, "a_alpha");
+          this.resolutionLoc = gl.getUniformLocation(
+            this.program,
+            "u_resolution",
+          );
+          this.offsetLoc = gl.getUniformLocation(this.program, "u_offset");
+          this.scaleLoc = gl.getUniformLocation(this.program, "u_scale");
+          this.colorLoc = gl.getUniformLocation(this.program, "u_color");
         }
-
+        createShader(type, source) {
+          const gl = this.gl;
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+          return shader;
+        }
+        initBuffers() {
+          const gl = this.gl;
+          this.positionBuffer = gl.createBuffer();
+          this.alphaBuffer = gl.createBuffer();
+          this.maxPoints = 2000;
+          this.positions = new Float32Array(this.maxPoints * 2);
+          this.alphas = new Float32Array(this.maxPoints);
+        }
+        resize() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
         clear() {
-          this.graphics.clear();
+          const gl = this.gl;
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+        drawTrail(trail, color, offsetX, offsetY, scale) {
+          if (!this.enabled || trail.length < 2) return;
+          const gl = this.gl;
+          const len = trail.length;
+          let idx = 0;
+          for (let i = 0; i < len; i++) {
+            const bufIdx = (trail.head + i) % trail.count;
+            this.positions[idx++] = trail.xs[bufIdx];
+            this.positions[idx++] = trail.ys[bufIdx];
+            this.alphas[i] = (i / len) * 0.8;
+          }
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            this.positions.subarray(0, len * 2),
+            gl.DYNAMIC_DRAW,
+          );
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.alphaBuffer);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            this.alphas.subarray(0, len),
+            gl.DYNAMIC_DRAW,
+          );
+          gl.useProgram(this.program);
+          gl.uniform2f(
+            this.resolutionLoc,
+            this.canvas.width,
+            this.canvas.height,
+          );
+          gl.uniform2f(this.offsetLoc, offsetX, offsetY);
+          gl.uniform1f(this.scaleLoc, scale);
+          gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
+          gl.enableVertexAttribArray(this.positionLoc);
+          gl.vertexAttribPointer(this.positionLoc, 2, gl.FLOAT, false, 0, 0);
+          gl.bindBuffer(gl.ARRAY_BUFFER, this.alphaBuffer);
+          gl.enableVertexAttribArray(this.alphaLoc);
+          gl.vertexAttribPointer(this.alphaLoc, 1, gl.FLOAT, false, 0, 0);
+          gl.lineWidth(2);
+          gl.drawArrays(gl.LINE_STRIP, 0, len);
+        }
+        drawTrails(trails, colors, offsetX, offsetY, scale) {
+          if (!this.enabled) return;
+          this.clear();
+          const gl = this.gl;
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          for (let i = 0; i < trails.length; i++) {
+            if (trails[i] && trails[i].length > 1 && colors[i]) {
+              this.drawTrail(trails[i], colors[i], offsetX, offsetY, scale);
+            }
+          }
         }
       }
 
-      class PixiStarField {
-        constructor(app) {
-          this.app = app;
+      class StarField {
+        constructor() {
           this.stars = [];
-          this.container = new PIXI.Container();
           this.generate();
         }
 
         generate() {
           const count = 50 + Math.floor(Math.random() * 151);
           this.stars = [];
-
           for (let i = 0; i < count; i++) {
             const depth = Math.random();
-            const baseSize = 0.3 + Math.random() * 0.7;
+            const baseSize = 1 + Math.random() * 2;
             const size = baseSize * (0.3 + depth * 0.7);
             const baseBrightness = 0.6 + Math.random() * 0.4;
             const brightness = baseBrightness * (0.4 + depth * 0.6);
-
             const colorRand = Math.random();
             let color;
             if (colorRand < 0.6) {
-              color = 0xffffff;
+              color = { r: 255, g: 255, b: 255 };
             } else if (colorRand < 0.85) {
-              color = 0xc8dcff;
+              color = { r: 200, g: 220, b: 255 };
             } else if (colorRand < 0.95) {
-              color = 0xfff0c8;
+              color = { r: 255, g: 240, b: 200 };
             } else {
-              color = 0xffc8c8;
+              color = { r: 255, g: 200, b: 200 };
             }
-
             this.stars.push({
               screenX: Math.random(),
               screenY: Math.random(),
@@ -1354,13 +1389,17 @@
           }
         }
 
-        update(time, viewWidth, viewHeight) {
-          this.container.removeChildren();
-
+        draw(ctx, offsetX, offsetY, scale, time) {
+          const viewWidth = ctx.canvas.width;
+          const viewHeight = ctx.canvas.height;
           for (const star of this.stars) {
-            const screenX = star.screenX * viewWidth;
-            const screenY = star.screenY * viewHeight;
-
+            const parallaxFactor = 0.1 + star.depth * 0.3;
+            const baseX = star.screenX * viewWidth;
+            const baseY = star.screenY * viewHeight;
+            const screenX = baseX - offsetX * parallaxFactor * 0.01;
+            const screenY = baseY - offsetY * parallaxFactor * 0.01;
+            const wrappedX = ((screenX % viewWidth) + viewWidth) % viewWidth;
+            const wrappedY = ((screenY % viewHeight) + viewHeight) % viewHeight;
             const twinkle = Math.sin(
               time * star.twinkleFreq * Math.PI * 2 + star.twinklePhase,
             );
@@ -1368,70 +1407,91 @@
               star.brightness * (1 + twinkle * star.twinkleAmp);
             const currentSize = star.size * (0.8 + twinkle * 0.1);
             const alpha = Math.min(1, Math.max(0.1, currentBrightness));
-
-            const graphics = new PIXI.Graphics();
-            graphics.beginFill(star.color, alpha);
-            graphics.drawCircle(screenX, screenY, Math.max(0.5, currentSize));
-            graphics.endFill();
-
+            const r = Math.round(star.color.r * currentBrightness);
+            const g = Math.round(star.color.g * currentBrightness);
+            const b = Math.round(star.color.b * currentBrightness);
+            ctx.beginPath();
+            ctx.arc(
+              wrappedX,
+              wrappedY,
+              Math.max(0.5, currentSize),
+              0,
+              Math.PI * 2,
+            );
+            ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+            ctx.fill();
             if (star.size > 1.5 && star.depth > 0.6) {
               const glowSize = currentSize * 2;
-              graphics.beginFill(star.color, alpha * 0.3);
-              graphics.drawCircle(screenX, screenY, glowSize);
-              graphics.endFill();
+              const glow = ctx.createRadialGradient(
+                wrappedX,
+                wrappedY,
+                0,
+                wrappedX,
+                wrappedY,
+                glowSize,
+              );
+              glow.addColorStop(0, `rgba(${r},${g},${b},${alpha * 0.3})`);
+              glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
+              ctx.beginPath();
+              ctx.arc(wrappedX, wrappedY, glowSize, 0, Math.PI * 2);
+              ctx.fillStyle = glow;
+              ctx.fill();
             }
-
-            this.container.addChild(graphics);
           }
         }
       }
 
       class NBodySim {
         constructor(canvas, bodies, G = 1, displayScale = 200) {
-          this.canvas = canvas;
-          this.bodies = bodies;
-          this.G = G;
-          this.displayScale = displayScale;
-          this.dt = 0.001;
-          this.speedMultiplier = 1;
-          this.scale = 1;
-          this.targetScale = 1;
-          this.offsetX = 0;
-          this.offsetY = 0;
-          this.showCom = false;
-          this.showTrail = true;
-          this.useMinDist = true;
-          this.enableCollision = false;
-          this.mergingBodies = [];
-          this.timer = null;
-          this.totalTime = 0;
-          this.trailLength = 1000;
-          this.trails = bodies.map(() => new CircularTrail(1000));
-          this.lastTime = 0;
-          this.domUpdateCounter = 0;
-          this.domElements = {
-            collisionInfo: null,
-            collisionType: null,
-            mergedMass: null,
-            impactSpeed: null,
-            momentumX: null,
-            momentumY: null,
-          };
-          this.trailColors = [];
-          this.autoZoom = {
-            enabled: true,
-            sensitivity: 0.01,
-            minScale: 0.01,
-            maxScale: 100,
-            padding: 2,
-            smoothing: 0.1,
-            paused: false,
-            pauseTimer: null,
-            resumeDelay: 5000,
-          };
-
+          Object.assign(this, {
+            canvas,
+            ctx: canvas.getContext("2d"),
+            bodies,
+            G,
+            displayScale,
+            dt: 0.001,
+            speedMultiplier: 1,
+            scale: 1,
+            targetScale: 1,
+            offsetX: 0,
+            offsetY: 0,
+            showCom: false,
+            showTrail: true,
+            useMinDist: true,
+            enableCollision: false,
+            mergingBodies: [],
+            timer: null,
+            totalTime: 0,
+            trailLength: 1000,
+            trails: bodies.map(() => new CircularTrail(1000)),
+            lastTime: 0,
+            domUpdateCounter: 0,
+            domElements: {
+              collisionInfo: null,
+              collisionType: null,
+              mergedMass: null,
+              impactSpeed: null,
+              momentumX: null,
+              momentumY: null,
+            },
+            trailColors: [],
+            autoZoom: {
+              enabled: true,
+              sensitivity: 0.01,
+              minScale: 0.01,
+              maxScale: 100,
+              padding: 2,
+              smoothing: 0.1,
+              paused: false,
+              pauseTimer: null,
+              resumeDelay: 5000,
+            },
+          });
           this.initDomElements();
           this.initTrailColors();
+          this.trailRenderer = new WebGLTrailRenderer(
+            document.getElementById("trailCanvas"),
+          );
           this.gravityCage = new GravityCage({
             enabled: true,
             boundaryRadius: 1600,
@@ -1444,87 +1504,9 @@
           const initCom = this.computeCenterOfMass();
           this.gravityCage.updateCenter(initCom);
           this.initState = structuredClone(bodies);
+          this.starField = new StarField();
+          this.resize();
           this.initEvents();
-        }
-
-        async initPixi() {
-          this.app = new PIXI.Application({
-            view: this.canvas,
-            width: window.innerWidth,
-            height: window.innerHeight,
-            backgroundColor: 0x000000,
-            antialias: true,
-            resolution: window.devicePixelRatio || 1,
-            autoDensity: true,
-          });
-
-          this.bgSprite = null;
-          this.bgImageLoaded = false;
-          this.bgLoading = false;
-          await this.loadBackgroundImage();
-
-          this.starField = new PixiStarField(this.app);
-          this.app.stage.addChild(this.starField.container);
-
-          this.mainContainer = new PIXI.Container();
-          this.app.stage.addChild(this.mainContainer);
-
-          this.trailRenderer = new PixiTrailRenderer();
-          this.mainContainer.addChild(this.trailRenderer.graphics);
-
-          this.starRenderer = new PixiStarRenderer(this.app);
-          await this.starRenderer.loadTextures();
-
-          this.starsContainer = new PIXI.Container();
-          this.mainContainer.addChild(this.starsContainer);
-
-          this.cageGraphics = new PIXI.Graphics();
-          this.mainContainer.addChild(this.cageGraphics);
-
-          this.comGraphics = new PIXI.Graphics();
-          this.mainContainer.addChild(this.comGraphics);
-
-          this.draw();
-        }
-
-        async loadBackgroundImage() {
-          if (this.bgLoading) return;
-          this.bgLoading = true;
-          try {
-            const bgUrl = "medres/eso0932a (1)-1.JPG";
-            const texture = await PIXI.Assets.load(bgUrl);
-            if (this.bgSprite) {
-              this.app.stage.removeChild(this.bgSprite);
-              this.bgSprite.destroy();
-              this.bgSprite = null;
-            }
-            this.bgSprite = new PIXI.Sprite(texture);
-            this.bgSprite.alpha = 0.3;
-            this.bgImageLoaded = true;
-            this.bgLoading = false;
-            this.updateBackgroundSize();
-            this.app.stage.addChildAt(this.bgSprite, 0);
-          } catch (e) {
-            this.bgLoading = false;
-            console.warn("Failed to load background image", e);
-          }
-        }
-
-        updateBackgroundSize() {
-          if (!this.bgSprite || !this.bgImageLoaded) return;
-          const canvasWidth = window.innerWidth;
-          const canvasHeight = window.innerHeight;
-          const textureWidth = this.bgSprite.texture.width;
-          const textureHeight = this.bgSprite.texture.height;
-
-          const scaleX = canvasWidth / textureWidth;
-          const scaleY = canvasHeight / textureHeight;
-          const scale = Math.max(scaleX, scaleY);
-
-          this.bgSprite.width = textureWidth * scale;
-          this.bgSprite.height = textureHeight * scale;
-          this.bgSprite.x = (canvasWidth - this.bgSprite.width) / 2;
-          this.bgSprite.y = (canvasHeight - this.bgSprite.height) / 2;
         }
 
         initDomElements() {
@@ -1543,36 +1525,61 @@
         }
 
         initTrailColors() {
+          const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(
+              hex,
+            );
+            return result
+              ? [
+                  parseInt(result[1], 16) / 255,
+                  parseInt(result[2], 16) / 255,
+                  parseInt(result[3], 16) / 255,
+                  1.0,
+                ]
+              : [1, 1, 1, 1];
+          };
           for (let i = 0; i < this.bodies.length; i++) {
             const body = this.bodies[i];
             const color =
               body.textureIndex >= 0
                 ? starColors[body.textureIndex]
                 : body.color || "#ffffff";
-            this.trailColors[i] = color;
+            this.trailColors[i] = hexToRgb(color);
           }
         }
 
         updateTrailColors() {
+          const hexToRgb = (hex) => {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(
+              hex,
+            );
+            return result
+              ? [
+                  parseInt(result[1], 16) / 255,
+                  parseInt(result[2], 16) / 255,
+                  parseInt(result[3], 16) / 255,
+                  1.0,
+                ]
+              : [1, 1, 1, 1];
+          };
           for (let i = 0; i < this.bodies.length; i++) {
             const body = this.bodies[i];
             const color =
               body.textureIndex >= 0
-                ? this.starRenderer?.loadedColors[body.textureIndex] ||
-                  starColors[body.textureIndex]
+                ? starColors[body.textureIndex]
                 : body.color || "#ffffff";
-            this.trailColors[i] = color;
+            this.trailColors[i] = hexToRgb(color);
           }
         }
 
         resize() {
-          if (this.app) {
-            this.app.renderer.resize(window.innerWidth, window.innerHeight);
-            this.updateBackgroundSize();
-          }
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          if (this.trailRenderer) this.trailRenderer.resize();
           this.draw();
         }
 
+        /* 初始化事件监听 */
         initEvents() {
           const c = this.canvas;
           c.addEventListener("wheel", (e) => {
@@ -1606,6 +1613,7 @@
           }, az.resumeDelay);
         }
 
+        /* 计算质心 */
         computeCenterOfMass() {
           const bodies = this.bodies;
           let totalMass = 0,
@@ -1772,6 +1780,7 @@
           }
         }
 
+        /* 更新轨迹 */
         updateTrails() {
           if (!this.showTrail) return;
           for (let i = 0; i < this.bodies.length; i++) {
@@ -1780,94 +1789,289 @@
           }
         }
 
+        /* 绘制 */
         draw() {
-          if (!this.app) return;
-
+          const {
+            ctx,
+            canvas,
+            bodies,
+            scale,
+            offsetX: ox,
+            offsetY: oy,
+            showCom,
+            showTrail,
+            trails,
+          } = this;
           const time = performance.now() * 0.001;
           this.lastTime = time;
-
+          ctx.fillStyle = "#000";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
           if (this.starField) {
-            this.starField.update(
-              time,
-              this.app.screen.width,
-              this.app.screen.height,
-            );
+            this.starField.draw(ctx, ox, oy, scale, time);
           }
-
-          this.mainContainer.position.set(this.offsetX, this.offsetY);
-          this.mainContainer.scale.set(this.scale, this.scale);
-
-          if (this.showTrail && this.trailRenderer) {
-            this.updateTrailColors();
-            this.trailRenderer.drawTrails(
-              this.trails,
-              this.bodies,
-              this.trailColors,
-            );
-          } else if (this.trailRenderer) {
-            this.trailRenderer.clear();
+          if (bgImage.complete && bgImage.naturalWidth > 0) {
+            const imgRatio = bgImage.naturalWidth / bgImage.naturalHeight;
+            const canvasRatio = canvas.width / canvas.height;
+            let drawW, drawH, drawX, drawY;
+            if (imgRatio > canvasRatio) {
+              drawH = canvas.height;
+              drawW = drawH * imgRatio;
+              drawX = (canvas.width - drawW) / 2;
+              drawY = 0;
+            } else {
+              drawW = canvas.width;
+              drawH = drawW / imgRatio;
+              drawX = 0;
+              drawY = (canvas.height - drawH) / 2;
+            }
+            ctx.globalAlpha = 0.3;
+            ctx.drawImage(bgImage, drawX, drawY, drawW, drawH);
+            ctx.globalAlpha = 1;
           }
-
-          this.starsContainer.removeChildren();
-          for (const b of this.bodies) {
-            if (this.starRenderer) {
-              const starContainer = this.starRenderer.createStarSprite(b, time);
-              this.starsContainer.addChild(starContainer);
+          ctx.save();
+          ctx.translate(ox, oy);
+          ctx.scale(scale, scale);
+          // 绘制轨迹 (优化版：分段批量绘制，头尾相接，平滑渐变)
+          if (showTrail) {
+            const segments = 240;
+            for (let i = 0; i < bodies.length; i++) {
+              const trail = trails[i];
+              if (trail.length < 2) continue;
+              const body = bodies[i];
+              const bodyColor =
+                body.textureIndex >= 0
+                  ? starColors[body.textureIndex]
+                  : body.color || "#ffffff";
+              ctx.strokeStyle = bodyColor;
+              ctx.lineWidth = 2 / scale;
+              ctx.lineCap = "round";
+              ctx.lineJoin = "round";
+              const len = trail.length;
+              const segmentSize = Math.max(1, Math.ceil(len / segments));
+              for (let s = 0; s < segments; s++) {
+                const start = s === 0 ? 0 : s * segmentSize - 1;
+                const end = Math.min(s * segmentSize + segmentSize, len);
+                if (start >= len) break;
+                const progress = (s * segmentSize + segmentSize / 2) / len;
+                const alpha = Math.pow(progress, 0.7) * 0.85;
+                ctx.globalAlpha = alpha;
+                ctx.beginPath();
+                for (let j = start; j < end; j++) {
+                  const idx = (trail.head + j) % trail.count;
+                  if (j === start) {
+                    ctx.moveTo(trail.xs[idx], trail.ys[idx]);
+                  } else {
+                    ctx.lineTo(trail.xs[idx], trail.ys[idx]);
+                  }
+                }
+                ctx.stroke();
+              }
+              ctx.globalAlpha = 1;
             }
           }
+          // 绘制天体 (优化版：使用缓存的glow纹理)
+          for (const b of bodies) {
+            const r = b.r;
+            const x = b.x;
+            const y = b.y;
+            const brightness = 0.6 + b.m * 0.1;
+            const glowColor =
+              b.textureIndex >= 0
+                ? starColors[b.textureIndex]
+                : b.color || "#ffffff";
+            const glowTexture = createGlowTexture(glowColor, r);
+            const glowSize = glowTexture.width;
+            ctx.drawImage(
+              glowTexture,
+              x - glowSize / 2,
+              y - glowSize / 2,
+              glowSize,
+              glowSize,
+            );
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.clip();
+            const texture = starTextures[b.textureIndex];
+            if (texture && texture.complete && texture.naturalWidth > 0) {
+              const rotation = time * 0.1;
+              ctx.translate(x, y);
+              ctx.rotate(rotation);
+              ctx.drawImage(texture, -r, -r, r * 2, r * 2);
+              ctx.rotate(-rotation);
+              ctx.translate(-x, -y);
+            } else {
+              const coreGrad = ctx.createRadialGradient(
+                x - r * 0.2,
+                y - r * 0.2,
+                0,
+                x,
+                y,
+                r,
+              );
+              coreGrad.addColorStop(0, "#ffffff");
+              coreGrad.addColorStop(0.3, "#ffffff");
+              coreGrad.addColorStop(0.6, glowColor);
+              coreGrad.addColorStop(1, glowColor + "ee");
+              ctx.fillStyle = coreGrad;
+              ctx.fill();
+            }
+            ctx.restore();
+            ctx.beginPath();
+            ctx.arc(x, y, r * 1.2, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(255,255,255,0.08)";
+            ctx.lineWidth = r * 0.1;
+            ctx.stroke();
+          }
+          // 绘制质心
+          if (showCom) {
+            const com = this.computeCenterOfMass();
+            const comRadius = 6;
+            const pulse = 1 + Math.sin(time * 3) * 0.15;
+            const rotateAngle = time * 0.5;
+            const outerGlow = ctx.createRadialGradient(
+              com.x,
+              com.y,
+              0,
+              com.x,
+              com.y,
+              comRadius * 6 * pulse,
+            );
+            outerGlow.addColorStop(0, "rgba(0,255,255,0.3)");
+            outerGlow.addColorStop(0.3, "rgba(0,200,255,0.15)");
+            outerGlow.addColorStop(0.6, "rgba(100,150,255,0.05)");
+            outerGlow.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(com.x, com.y, comRadius * 6 * pulse, 0, Math.PI * 2);
+            ctx.fillStyle = outerGlow;
+            ctx.fill();
+            const innerGlow = ctx.createRadialGradient(
+              com.x,
+              com.y,
+              0,
+              com.x,
+              com.y,
+              comRadius * 2.5,
+            );
+            innerGlow.addColorStop(0, "rgba(255,255,255,0.9)");
+            innerGlow.addColorStop(0.3, "rgba(150,255,255,0.6)");
+            innerGlow.addColorStop(0.7, "rgba(0,200,255,0.3)");
+            innerGlow.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(com.x, com.y, comRadius * 2.5, 0, Math.PI * 2);
+            ctx.fillStyle = innerGlow;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(com.x, com.y, comRadius, 0, Math.PI * 2);
+            const coreGrad = ctx.createRadialGradient(
+              com.x - comRadius * 0.3,
+              com.y - comRadius * 0.3,
+              0,
+              com.x,
+              com.y,
+              comRadius,
+            );
+            coreGrad.addColorStop(0, "#ffffff");
+            coreGrad.addColorStop(0.5, "#aaffff");
+            coreGrad.addColorStop(1, "#00ddff");
+            ctx.fillStyle = coreGrad;
+            ctx.fill();
+            ctx.strokeStyle = "rgba(0,255,255,0.8)";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.save();
+            ctx.translate(com.x, com.y);
+            ctx.rotate(rotateAngle);
+            for (let i = 0; i < 4; i++) {
+              ctx.rotate(Math.PI / 2);
+              ctx.beginPath();
+              ctx.moveTo(comRadius + 3, 0);
+              ctx.lineTo(comRadius + 10 + Math.sin(time * 4) * 2, 0);
+              const lineGrad = ctx.createLinearGradient(
+                comRadius + 3,
+                0,
+                comRadius + 12,
+                0,
+              );
+              lineGrad.addColorStop(0, "rgba(0,255,255,0.8)");
+              lineGrad.addColorStop(1, "rgba(0,255,255,0)");
+              ctx.strokeStyle = lineGrad;
+              ctx.lineWidth = 2;
+              ctx.stroke();
+            }
+            ctx.restore();
+            ctx.beginPath();
+            ctx.arc(com.x, com.y, comRadius * 3.5, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(0,255,255,${0.2 + Math.sin(time * 2) * 0.1})`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          if (this.gravityCage.enabled && this.gravityCage.showBoundaries) {
+            const cage = this.gravityCage;
+            const cx = cage.center.x;
+            const cy = cage.center.y;
+            const warningR = cage.warningRadius;
+            const boundaryR = cage.boundaryRadius;
+            ctx.beginPath();
+            ctx.arc(cx, cy, warningR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 200, 50, ${0.3 + Math.sin(time * 2) * 0.1})`;
+            ctx.lineWidth = 2 / scale;
+            ctx.setLineDash([10, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            const warningGrad = ctx.createRadialGradient(
+              cx,
+              cy,
+              warningR - 50,
+              cx,
+              cy,
+              warningR + 50,
+            );
+            warningGrad.addColorStop(0, "transparent");
+            warningGrad.addColorStop(0.5, "rgba(255, 200, 50, 0.05)");
+            warningGrad.addColorStop(1, "transparent");
+            ctx.beginPath();
+            ctx.arc(cx, cy, warningR, 0, Math.PI * 2);
+            ctx.fillStyle = warningGrad;
+            ctx.fill();
+            const pulseIntensity = 0.4 + Math.sin(time * 3) * 0.2;
+            const boundaryGrad = ctx.createRadialGradient(
+              cx,
+              cy,
+              boundaryR - 100,
+              cx,
+              cy,
+              boundaryR + 100,
+            );
+            boundaryGrad.addColorStop(0, "transparent");
+            boundaryGrad.addColorStop(
+              0.7,
+              `rgba(255, 50, 50, ${pulseIntensity * 0.1})`,
+            );
+            boundaryGrad.addColorStop(
+              1,
+              `rgba(255, 50, 50, ${pulseIntensity * 0.3})`,
+            );
+            ctx.beginPath();
+            ctx.arc(cx, cy, boundaryR, 0, Math.PI * 2);
+            ctx.fillStyle = boundaryGrad;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(cx, cy, boundaryR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 50, 50, ${pulseIntensity})`;
+            ctx.lineWidth = 3 / scale;
+            ctx.stroke();
+          }
 
-          this.drawCageBoundaries(time);
-          this.drawCenterOfMass(time);
-
+          ctx.restore();
           this.domUpdateCounter++;
           if (this.domUpdateCounter >= 10) {
             this.domUpdateCounter = 0;
             this.updateTimeDisplay();
             this.updateEnergyDisplay();
           }
-        }
-
-        drawCageBoundaries(time) {
-          this.cageGraphics.clear();
-          if (!this.gravityCage.enabled || !this.gravityCage.showBoundaries)
-            return;
-
-          const cage = this.gravityCage;
-          const cx = cage.center.x;
-          const cy = cage.center.y;
-          const warningR = cage.warningRadius;
-          const boundaryR = cage.boundaryRadius;
-
-          this.cageGraphics.lineStyle(
-            2 / this.scale,
-            0xffc832,
-            0.3 + Math.sin(time * 2) * 0.1,
-          );
-          this.cageGraphics.drawCircle(cx, cy, warningR);
-
-          const pulseIntensity = 0.4 + Math.sin(time * 3) * 0.2;
-          this.cageGraphics.lineStyle(3 / this.scale, 0xff3232, pulseIntensity);
-          this.cageGraphics.drawCircle(cx, cy, boundaryR);
-        }
-
-        drawCenterOfMass(time) {
-          this.comGraphics.clear();
-          if (!this.showCom) return;
-
-          const com = this.computeCenterOfMass();
-          const comRadius = 6;
-          const pulse = 1 + Math.sin(time * 3) * 0.15;
-
-          this.comGraphics.beginFill(0x00ffff, 0.3);
-          this.comGraphics.drawCircle(com.x, com.y, comRadius * 6 * pulse);
-          this.comGraphics.endFill();
-
-          this.comGraphics.beginFill(0xffffff, 0.9);
-          this.comGraphics.drawCircle(com.x, com.y, comRadius);
-          this.comGraphics.endFill();
-
-          this.comGraphics.lineStyle(1.5, 0x00ffff, 0.8);
-          this.comGraphics.drawCircle(com.x, com.y, comRadius);
         }
 
         updateTimeDisplay() {
@@ -1955,8 +2159,8 @@
 
         centerOnCom() {
           const com = this.computeCenterOfMass();
-          this.offsetX = this.app.screen.width / 2 - com.x * this.scale;
-          this.offsetY = this.app.screen.height / 2 - com.y * this.scale;
+          this.offsetX = this.canvas.width / 2 - com.x * this.scale;
+          this.offsetY = this.canvas.height / 2 - com.y * this.scale;
         }
 
         computeBoundingSphere() {
@@ -2003,10 +2207,7 @@
           const az = this.autoZoom;
           if (!az.enabled) return this.scale;
           const bounding = this.computeBoundingSphere();
-          const canvasSize = Math.min(
-            this.app.screen.width,
-            this.app.screen.height,
-          );
+          const canvasSize = Math.min(this.canvas.width, this.canvas.height);
           const targetRadius = bounding.radius * az.padding;
           let targetScale = (canvasSize * 0.45) / targetRadius;
           targetScale = Math.max(
@@ -2025,19 +2226,21 @@
             const step = diff * az.sensitivity;
             this.scale += step;
             const com = this.computeCenterOfMass();
-            const screenX = this.app.screen.width / 2;
-            const screenY = this.app.screen.height / 2;
+            const screenX = this.canvas.width / 2;
+            const screenY = this.canvas.height / 2;
             this.offsetX = screenX - com.x * this.scale;
             this.offsetY = screenY - com.y * this.scale;
           }
         }
       }
 
+      // 初始化
       const canvas = document.getElementById("canvas");
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
       const scale = 200;
 
+      /* 生成随机天体 */
       function generateRandomBodies() {
         const G = 1;
         const bodies = [];
@@ -2117,18 +2320,18 @@
         });
       }
 
-      sim.initPixi().then(() => {
-        sim.centerOnCom();
-        sim.draw();
-        updateControlPanel(bodies);
-        sim.start();
-      });
+      sim.centerOnCom();
+      sim.draw();
+      updateControlPanel(bodies);
+      sim.start();
 
+      // 悬浮球面板展开/收起
       const toggleBtn = document.getElementById("togglePanel");
       const controlPanel = document.getElementById("controlPanel");
       const panelContainer = document.getElementById("panelContainer");
       let panelExpanded = false;
 
+      // 拖拽移动功能
       let isDragging = false;
       let hasMoved = false;
       let dragStartX, dragStartY, containerStartX, containerStartY;
@@ -2179,6 +2382,7 @@
         toggleBtn.textContent = panelExpanded ? "✕" : "⚙";
       });
 
+      // 控制按钮
       document.getElementById("start").onclick = () => sim.start();
       document.getElementById("stop").onclick = () => sim.stop();
 
