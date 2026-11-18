@@ -1,0 +1,15 @@
+{
+  "name": "threebody-2d",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "基于 Yoshida 四阶辛积分器的二维三体引力运动模拟器",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}
